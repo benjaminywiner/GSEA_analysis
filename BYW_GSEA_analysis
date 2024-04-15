@@ -1,0 +1,66 @@
+setwd("/Users/settlea/Documents/Research/code/RNA_Seq/Ben_12227_B/")
+
+#BiocManager::install("GSEABase")
+#BiocManager::install("org.Hs.eg.db")
+library(DESeq2)
+library(GSEABase)
+library(org.Mm.eg.db)
+library(org.Hs.eg.db)
+library(tidyverse)
+library(dplyr)
+library(reshape2)
+library(Rsubread)
+library(pheatmap)
+library(biomaRt)
+library(clusterProfiler)
+library(DOSE)
+library(topGO)
+library(Rgraphviz)
+
+geneset <- as.data.frame(read.gmt('c2.cp.kegg.v7.4.entrez.gmt')) 
+geneset
+geneset_label <- 'KEGG'
+
+res <- read.csv('GNB4_KO_Blobs_vs_GNB4_KO_ctrl.csv',header = T, stringsAsFactors = F,sep=',');
+res <- res[res$padj < 0.1,]  #remove insignificant genes
+res <- res[rev(order(res$log2FoldChange)),]
+
+resLogFC <- res$log2FoldChange
+names(resLogFC) <- res$Row.names
+
+gsegmt <- GSEA(resLogFC, TERM2GENE=geneset, verbose=T, pvalueCutoff = 1)
+
+
+#####
+# View the results
+#####
+gsemaResults <- as.data.frame(gsegmt)[,-ncol(as.data.frame(gsegmt))]
+head(gsemaResults[gsemaResults$NES < 0,], 5)
+
+head(gsemaResults[gsemaResults$NES > 0,], 1)
+
+
+#Generate full bar graph showing significantly enriched gene sets
+ggGSEAresult <- as.data.frame(gsegmt) %>%
+  head(35) %>%
+  as_tibble() %>%
+  arrange(desc(NES)) %>%
+  ggplot( aes(reorder(ID, NES), NES)) +
+  geom_col(aes(fill=p.adjust < 0.05)) +
+  coord_flip() +
+  labs(x="Pathway", y="Normalized Enrichment Score",
+       title="Hallmark pathways NES from GSEA") + 
+  theme_minimal()
+
+
+ggGSEAresult 
+
+
+
+
+
+#Generate one GSEA plot for the gene set specified:
+gSEA_plot <-gseaplot(gsegmt, geneSetID='KEGG_SPHINGOLIPID_METABOLISM')
+
+gSEA_plot
+#ggsave('Name_GSEA_KeggFC.png',gSEA_plot)
